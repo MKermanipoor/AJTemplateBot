@@ -121,26 +121,27 @@ def get_jacoboan(q):
 
     return jacobian
 
-    
-def bounding(number):
-
-
-    return min(0.2, max(-0.2, number))
-
-
 def listener (data):
     global q
 
     q[0] = get_base(data)
     target = np.array([data.x, data.y, data.z])
 
-    rate = rospy.Rate(0.3)
-    
-    for i in range(20):
+    rate = rospy.Rate(2)
+    d = np.array([100,0,0]) 
+    last_d = np.zeros((3,3))
+    count_less_movement = 0
+
+    while count_less_movement < 5 :
+        last_d = d
+
         now_p = get_position(q)
         d = target - now_p
 
-        dd = d / 5
+        dd = d
+
+        if np.linalg.norm(dd) > 0.1:
+            dd = dd / 5
 
         jac = get_jacoboan(q)
         dq = np.linalg.pinv(jac).dot(dd)
@@ -153,11 +154,29 @@ def listener (data):
         q = q + dq
         rospy.loginfo("[%f\t,%f\t,%f]", q[0], q[1], q[2])
 
+        more_teta_1 = 0
+        if count_less_movement > 3 :
+            more_teta_1 = (q[1] - min(0.5, max(0, q[1]))) * 1.5
+        rospy.loginfo("%f", more_teta_1)
+
+        more_teta_2 = 0
+        if count_less_movement > 3 :
+            more_teta_2 = (q[2] - min(0.75, max(0, q[2]))) * 0.5
+        rospy.loginfo("%f", more_teta_2)
+
+        q[1] += more_teta_2
         q[1] = min(0.5, max(0, q[1]))
+
+        q[2] += more_teta_1
         q[2] = min(0.75, max(0, q[2]))
+
         rospy.loginfo("[%f\t,%f\t,%f]", q[0], q[1], q[2])
 
         rospy.loginfo("\n\n")
+
+        if np.linalg.norm(d-last_d) < 0.05:
+            count_less_movement += 1
+
         rate.sleep()
 
 
